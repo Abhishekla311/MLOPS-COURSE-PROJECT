@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+pyyaml
+imbalanced-learn
+mlflow
+flask
+boto3
+lightgbm

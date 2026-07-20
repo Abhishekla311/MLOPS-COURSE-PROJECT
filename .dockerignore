@@ -1,0 +1,25 @@
+# Local virtual environments
+venv/
+.venv/
+env/
+
+# Git history
+.git
+.gitignore
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Large datasets or trained models (if they are saved locally)
+*.csv
+*.xlsx
+*.pkl
+*.h5
+
+# Docker configuration files
+Dockerfile
+.dockerignore
