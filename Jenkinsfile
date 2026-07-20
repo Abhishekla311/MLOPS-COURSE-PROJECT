@@ -69,38 +69,33 @@ pipeline {
         }
 
         // 🚀 यहाँ बदलाव किया गया है: App Runner की जगह अब यह सीधे EC2 पर डिप्लॉय करेगा
-        stage('Deploy to AWS EC2 Instance') {
+        stage('Building and Pushing Docker Image to ECR') {
             steps {
-                // आपके द्वारा बनाए गए 'ec2-ssh-key' क्रेडेंशियल का उपयोग कर रहे हैं
-                sshagent(credentials: ['ec2-ssh-key']) {
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'aws-credentials',
-                            usernameVariable: 'AWS_ACCESS_KEY_ID',
-                            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                        )
-                    ]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    withEnv(["AWS_DEFAULT_REGION=${AWS_REGION}"]) {
                         script {
-                            echo 'Deploying to AWS EC2 Instance (100.53.213.126)............'
+                            echo 'Building and pushing Docker image............'
                             
-                            // SSH के जरिए EC2 के अंदर कमांड्स रन की जा रही हैं
+                            // 🚀 यहाँ बदलाव किया गया है: विंडोज शेल में सीधे क्रेडेंशियल्स को 'set' किया गया है 
+                            // ताकि AWS CLI बिल्कुल फ्रेश क्रेडेंशियल्स का उपयोग करे
                             bat """
-                            ssh -o StrictHostKeyChecking=no ubuntu@%EC2_IP% "
-                                # 1. EC2 के अंदर AWS ECR पर लॉगिन करें
-                                export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-                                export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-                                aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-                                
-                                # 2. पुराना कंटेनर चल रहा हो तो उसे रोकें और हटाएं
-                                docker stop %IMAGE_NAME% || true
-                                docker rm %IMAGE_NAME% || true
-                                
-                                # 3. ECR से लेटेस्ट इमेज पुल करें
-                                docker pull ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/%IMAGE_NAME%:%IMAGE_TAG%
-                                
-                                # 4. नया कंटेनर पोर्ट 80 पर चालू करें
-                                docker run -d --name %IMAGE_NAME% -p 80:80 ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/%IMAGE_NAME%:%IMAGE_TAG%
-                            "
+                            set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
+                            set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
+                            set AWS_DEFAULT_REGION=%AWS_DEFAULT_REGION%
+                            
+                            aws ecr get-login-password --region %AWS_DEFAULT_REGION% | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_DEFAULT_REGION%.amazonaws.com
+                            
+                            timeout /t 3 /nobreak
+                            
+                            docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
+                            docker tag %IMAGE_NAME%:%IMAGE_TAG% %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_DEFAULT_REGION%.amazonaws.com/%IMAGE_NAME%:%IMAGE_TAG%
+                            docker push %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_DEFAULT_REGION%.amazonaws.com/%IMAGE_NAME%:%IMAGE_TAG%
                             """
                         }
                     }
