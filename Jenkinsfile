@@ -11,6 +11,14 @@ pipeline {
     } 
     
     stages {
+        // 🚀 1. सबसे पहले पुराना पुराना कैश और कचरा साफ करने के लिए यह स्टेज यहाँ जोड़ें
+        stage('Clean Workspace') {
+            steps {
+                cleanWs() 
+            }
+        } 
+    }  
+    stages {
         stage('Cloning Github repo to Jenkins') {
             steps {
                 script {
