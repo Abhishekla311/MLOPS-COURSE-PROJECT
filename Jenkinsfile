@@ -10,7 +10,7 @@ pipeline {
         EC2_IP = '100.53.213.126'
         
         // 🚀 अगर आपकी मशीन पर Python का वर्ज़न अलग है, तो यहाँ पाथ बदल लें (Double Slash \\ लगाना ज़रूरी है)
-        PYTHON_EXE = 'C:\\Python310\\python.exe' 
+       PYTHON_EXE = 'C:\\Users\\Abhishek\\AppData\\Local\\Programs\\Python\\Python312\\python.exe'
     } 
     
     stages {
