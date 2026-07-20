@@ -31,6 +31,7 @@ def index():
 
         return render_template('index.html', prediction=prediction[0])
     
+#dfd
     return render_template("index.html" , prediction=None)
 
 if __name__=="__main__":
