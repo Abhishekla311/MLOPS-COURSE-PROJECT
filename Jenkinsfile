@@ -8,19 +8,20 @@ pipeline {
         IMAGE_NAME = 'ml_project'
         IMAGE_TAG = 'latest'
         EC2_IP = '100.53.213.126'
+        
+        // 🚀 अगर आपकी मशीन पर Python का वर्ज़न अलग है, तो यहाँ पाथ बदल लें (Double Slash \\ लगाना ज़रूरी है)
+        PYTHON_EXE = 'C:\\Python310\\python.exe' 
     } 
     
-    // 🚀 यहाँ से मुख्य STAGES ब्लॉक शुरू होता है (पूरी स्क्रिप्ट में केवल यही एक रहेगा)
     stages {
-        
-        // Stage 1: सबसे पहले पुराना कचरा और कैश साफ़ होगा
+        // Stage 1: पुराना बिल्ड कैश और कचरा साफ़ करना
         stage('Clean Workspace') {
             steps {
                 cleanWs() 
             }
         } 
 
-        // Stage 2: गिटहब से नया कोड क्लोन होगा
+        // Stage 2: गिटहब से फ्रेश कोड क्लोन करना
         stage('Cloning Github repo to Jenkins') {
             steps {
                 script {
@@ -37,13 +38,13 @@ pipeline {
             }
         }
 
-        // Stage 3: वर्चुअल एनवायरनमेंट सेटअप और डिपेंडेंसी इंस्टॉल होगी
+        // Stage 3: वर्चुअल एनवायरनमेंट बनाना और डिपेंडेंसी इंस्टॉल करना
         stage('Setting up Virtual Environment and Installing dependencies') {
             steps {
                 script {
                     echo 'Installing dependencies............'
                     bat """
-                    python -m venv ${VENV_DIR}
+                    "${PYTHON_EXE}" -m venv ${VENV_DIR}
                     ${VENV_DIR}\\Scripts\\python.exe -m pip install --upgrade pip
                     ${VENV_DIR}\\Scripts\\pip.exe install -e .
                     """
@@ -51,7 +52,7 @@ pipeline {
             }
         }
 
-        // Stage 4: डॉकर इमेज बिल्ड होगी और एडब्ल्यूएस ECR पर पुश होगी
+        // Stage 4: डॉकर इमेज बिल्ड करना और AWS ECR पर पुश करना
         stage('Building and Pushing Docker Image to ECR') {
             steps {
                 withCredentials([
@@ -65,7 +66,7 @@ pipeline {
                         script {
                             echo 'Building and pushing Docker image............'
                             
-                            // विंडोज कैश को बायपास करने के लिए क्रेडेंशियल्स को जबरन सेट किया गया है
+                            // विंडोज एनवायरनमेंट वेरिएबल्स के कैश को बायपास करने के लिए
                             bat """
                             set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
                             set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
@@ -85,7 +86,7 @@ pipeline {
             }
         }
 
-        // Stage 5: SSH Agent के द्वारा कोड सीधे आपके EC2 इंस्टेंस पर लाइव होगा
+        // Stage 5: SSH Agent के ज़रिए इमेज को सीधे EC2 इंस्टेंस पर रन करना
         stage('Deploy to AWS EC2 Instance') {
             steps {
                 sshagent(credentials: ['ec2-ssh-key']) {
@@ -99,23 +100,23 @@ pipeline {
                         script {
                             echo 'Deploying to AWS EC2 Instance (100.53.213.126)............'
                             
-                            // SSH के जरिए विंडोज होस्ट से सीधे आपके Ubuntu EC2 के अंदर कमांड्स निष्पादित होंगी
+                            // SSH कनेक्शन के ज़रिए विंडोज होस्ट से Ubuntu EC2 सर्वर के अंदर कमांड्स एक्जीक्यूट होंगी
                             bat """
                             ssh -o StrictHostKeyChecking=no ubuntu@%EC2_IP% "
-                                # 1. EC2 के भीतर AWS क्रेडेंशियल्स एक्सपोर्ट करें ताकि इमेज पुल की जा सके
+                                # 1. EC2 के अंदर क्रेडेंशियल्स सेट करें ताकि वो ECR से इमेज डाउनलोड कर सके
                                 export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
                                 export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
                                 
                                 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
                                 
-                                # 2. पोर्ट क्लैश से बचने के लिए पुराने कंटेनर को रोकें और हटाएं
+                                # 2. अगर पुराना पुराना कंटेनर चल रहा है तो उसे रोकें और डिलीट करें
                                 docker stop %IMAGE_NAME% || true
                                 docker rm %IMAGE_NAME% || true
                                 
-                                # 3. ECR से एकदम ताज़ा इमेज डाउनलोड करें
+                                # 3. ECR से ताज़ा इमेज पुल (Pull) करें
                                 docker pull ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/%IMAGE_NAME%:%IMAGE_TAG%
                                 
-                                # 4. नया कंटेनर पोर्ट 80 पर बैकग्राउंड में चलाएं
+                                # 4. नया कंटेनर पोर्ट 80 पर लाइव करें
                                 docker run -d --name %IMAGE_NAME% -p 80:80 ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/%IMAGE_NAME%:%IMAGE_TAG%
                             "
                             """
@@ -124,5 +125,5 @@ pipeline {
                 }
             }
         }
-    } // 🚀 यहाँ मुख्य STAGES ब्लॉक सही ढंग से बंद होता है
+    }
 }
